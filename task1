@@ -1,0 +1,75 @@
+import csv
+
+def load_data(filename):
+    with open(filename, 'r') as file:
+        reader = csv.DictReader(file)
+        data = []
+        for row in reader:
+            try:
+                sqft = float(row['GrLivArea'])
+                bedrooms = float(row['BedroomAbvGr'])
+                bathrooms = float(row['FullBath'])
+                price = float(row['SalePrice'])
+                data.append([sqft, bedrooms, bathrooms, price])
+            except:
+                continue
+        return data
+
+def prepare_features(data):
+    X = []
+    y = []
+    for row in data:
+        X.append([1.0, row[0], row[1], row[2]])
+        y.append(row[3])
+    return X, y
+
+def transpose(matrix):
+    return [list(row) for row in zip(*matrix)]
+
+def matmul(A, B):
+    result = [[0] * len(B[0]) for _ in range(len(A))]
+    for i in range(len(A)):
+        for j in range(len(B[0])):
+            for k in range(len(B)):
+                result[i][j] += A[i][k] * B[k][j]
+    return result
+
+def invert(matrix):
+    n = len(matrix)
+    identity = [[float(i == j) for i in range(n)] for j in range(n)]
+    for i in range(n):
+        diag = matrix[i][i]
+        for j in range(n):
+            matrix[i][j] /= diag
+            identity[i][j] /= diag
+        for k in range(n):
+            if k != i:
+                factor = matrix[k][i]
+                for j in range(n):
+                    matrix[k][j] -= factor * matrix[i][j]
+                    identity[k][j] -= factor * identity[i][j]
+    return identity
+
+def linear_regression(X, y):
+    XT = transpose(X)
+    XTX = matmul(XT, X)
+    XTX_inv = invert(XTX)
+    XTy = matmul(XT, [[val] for val in y])
+    weights = matmul(XTX_inv, XTy)
+    return [w[0] for w in weights]
+
+def predict(X, weights):
+    predictions = []
+    for row in X:
+        pred = sum([row[i] * weights[i] for i in range(len(weights))])
+        predictions.append(pred)
+    return predictions
+
+data = load_data('/content/train.csv')
+X, y = prepare_features(data)
+weights = linear_regression(X, y)
+print("Model Weights:", weights)
+predictions = predict(X, weights)
+print("\nSample Predictions:")
+for i in range(5):
+    print(f"Predicted: {int(predictions[i])} | Actual: {int(y[i])}")
